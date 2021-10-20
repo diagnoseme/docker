@@ -11,7 +11,7 @@ for ((idx=0; idx<${#my_array[@]}; ++idx)); do
     name=$(echo $i | sed 's/\..*//')
     id=$(echo $i | sed 's/^.*+//')
 
-	echo -e "$index"'\t'"$name"
+    echo -e "$index"'\t'"$name"
 done
 
 echo
