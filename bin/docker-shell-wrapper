@@ -1,0 +1,28 @@
+#!/bin/bash
+
+my_array=($(docker ps --format 'table {{.Names}}+{{.ID}}' | grep -v '^NAMES' | grep app | sort -k 1))
+#declare -p my_array
+
+for ((idx=0; idx<${#my_array[@]}; ++idx)); do
+    i="${my_array[idx]}"
+    index="$idx"
+    index=$(echo $index+1 | bc)
+
+    name=$(echo $i | sed 's/\..*//')
+    id=$(echo $i | sed 's/^.*+//')
+
+	echo -e "$index"'\t'"$name"
+done
+
+echo
+read -p '? ' number
+
+index=$(echo $number-1 | bc)
+id=$(echo ${my_array[$index]} | sed 's/^.*+//')
+name=$(echo ${my_array[$index]} | sed 's/\..*//')
+
+echo
+echo $name
+echo
+
+docker exec -it $id bash
