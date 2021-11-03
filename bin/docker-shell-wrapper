@@ -41,11 +41,18 @@ done
 echo
 read -p '? ' number
 
+# set the connection details
+index=$(echo "$number-1" | bc)
+name=$(echo ${names[$index]})
+id=$(echo ${ids[$index]})
+
 # ask for the user type
 echo
 echo "Connect as a root? y/[n]"
 echo
 read -p "? " connectAsRoot
+
+# set the user type
 case $connectAsRoot in
   y|Y)
     user="root"
@@ -57,13 +64,14 @@ case $connectAsRoot in
   ;;
 esac
 
-# remap selected number to array key
-index=$(echo "$number-1" | bc)
+# ask for the shell name
+echo
+echo "What shell to use? [bash]"
+echo
+read -p "? " shell
 
-# set connection details
-name=$(echo ${names[$index]})
-id=$(echo ${ids[$index]})
-shell="bash"
+# set the shell name
+shell=${shell:-bash}
 
 # show connection details
 echo
@@ -71,9 +79,9 @@ echo "Attaching to the selected container..."
 echo
 echo "Name: $name"
 echo "Id: $id"
-echo "Shell: $shell"
 echo "User: $user"
 echo "Group: $group"
+echo "Shell: $shell"
 echo
 
 # attach to the container
