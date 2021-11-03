@@ -5,6 +5,16 @@ dockerContainersList() {
   docker ps --format 'table {{.Names}}\t{{.ID}}\t{{.Labels}}' | grep -v '^NAMES' | sort -k 1
 }
 
+# user's id on the host
+hostUser() {
+  id --user
+}
+
+# user's group id on the host
+hostGroup() {
+  id --group
+}
+
 # filter the list based on the first parameter
 if [[ $1 ]]; then
   list=$(dockerContainersList | grep $1)
@@ -31,6 +41,22 @@ done
 echo
 read -p '? ' number
 
+# ask for the user type
+echo
+echo "Connect as a root? y/[n]"
+echo
+read -p "? " connectAsRoot
+case $connectAsRoot in
+  y|Y)
+    user="root"
+    group="root"
+  ;;
+  n|N|*)
+    user=$(hostUser)
+    group=$(hostGroup)
+  ;;
+esac
+
 # remap selected number to array key
 index=$(echo "$number-1" | bc)
 
@@ -46,7 +72,9 @@ echo
 echo "Name: $name"
 echo "Id: $id"
 echo "Shell: $shell"
+echo "User: $user"
+echo "Group: $group"
 echo
 
 # attach to the container
-docker exec --interactive --tty $id $shell
+docker exec --interactive --tty --user $user:$group $id $shell
