@@ -1,28 +1,52 @@
 #!/bin/bash
 
-my_array=($(docker ps --format 'table {{.Names}}+{{.ID}}' | grep -v '^NAMES' | grep app | sort -k 1))
-#declare -p my_array
+# running containers list
+dockerContainersList() {
+  docker ps --format 'table {{.Names}}\t{{.ID}}\t{{.Labels}}' | grep -v '^NAMES' | sort -k 1
+}
 
-for ((idx=0; idx<${#my_array[@]}; ++idx)); do
-    i="${my_array[idx]}"
-    index="$idx"
-    index=$(echo $index+1 | bc)
+# filter the list based on the first parameter
+if [[ $1 ]]; then
+  list=$(dockerContainersList | grep $1)
+else
+  list=$(dockerContainersList)
+fi
 
-    name=$(echo $i | sed 's/\..*//')
-    id=$(echo $i | sed 's/^.*+//')
+# create arrays from the list (print the array: declare -p name)
+names=($(echo "$list" | awk '{print $1}'))
+ids=($(echo "$list" | awk '{print $2}'))
+
+# show the running container names
+for ((idx=0; idx<${#names[@]}; ++idx)); do
+    value="${names[idx]}"
+    index=$(echo "$idx+1" | bc)
+
+    # show pretty name
+    name=$(echo $value | sed 's/\..*//')
 
     echo -e "$index"'\t'"$name"
 done
 
+# ask for a number from the list
 echo
 read -p '? ' number
 
-index=$(echo $number-1 | bc)
-id=$(echo ${my_array[$index]} | sed 's/^.*+//')
-name=$(echo ${my_array[$index]} | sed 's/\..*//')
+# remap selected number to array key
+index=$(echo "$number-1" | bc)
 
+# set connection details
+name=$(echo ${names[$index]})
+id=$(echo ${ids[$index]})
+shell="bash"
+
+# show connection details
 echo
-echo $name
+echo "Attaching to the selected container..."
+echo
+echo "Name: $name"
+echo "Id: $id"
+echo "Shell: $shell"
 echo
 
-docker exec -it $id bash
+# attach to the container
+docker exec --interactive --tty $id $shell
