@@ -7,12 +7,12 @@ dockerContainersList() {
 
 # user's id on the host
 hostUser() {
-  id --user
+  id -u
 }
 
 # user's group id on the host
 hostGroup() {
-  id --group
+  id -g
 }
 
 # filter the list based on the first parameter
