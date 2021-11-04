@@ -5,14 +5,14 @@ dockerContainersList() {
   docker ps --format 'table {{.Names}}\t{{.ID}}\t{{.Labels}}' | grep -v '^NAMES' | sort -k 1
 }
 
-# user's id on the host
-hostUser() {
-  id -u
-}
+# user's and group's id on the host
+hostUserAndGroup() {
+  if [ $DOCKER_USER_AND_GROUP ]; then
+    echo "$DOCKER_USER_AND_GROUP"
+    exit
+  fi
 
-# user's group id on the host
-hostGroup() {
-  id -g
+  echo "$(id -u):$(id -g)"
 }
 
 # filter the list based on the first parameter
@@ -58,7 +58,7 @@ case $connectAsRoot in
     userAndGroup="root:root"
   ;;
   n|N|*)
-    userAndGroup="$(hostUser):$(hostGroup)"
+    userAndGroup="$(hostUserAndGroup)"
   ;;
 esac
 
