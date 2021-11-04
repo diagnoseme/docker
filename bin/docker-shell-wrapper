@@ -64,14 +64,17 @@ case $connectAsRoot in
   ;;
 esac
 
-# ask for the shell name
+# detect the shell name
 echo
-echo "What shell to use? [bash]"
-echo
-read -p "? " shell
+echo -n "Detecting a shell in the container..."
 
 # set the shell name
-shell=${shell:-bash}
+output=$(docker exec "$id" which bash)
+if [ $output ]; then
+  shell="bash"
+else
+  shell="sh"
+fi
 
 # show connection details
 echo

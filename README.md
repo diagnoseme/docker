@@ -8,7 +8,8 @@
 
   - Container number (from a list)
   - User type (root or the host's user)
-  - Shell name (bash, sh, ...)
+
+  The `bash` shell is used if it is available in the container otherwise the `sh`.
 
 ## Usage
 
