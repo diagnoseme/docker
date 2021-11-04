@@ -55,12 +55,10 @@ read -p "? " connectAsRoot
 # set the user type
 case $connectAsRoot in
   y|Y)
-    user="root"
-    group="root"
+    userAndGroup="root:root"
   ;;
   n|N|*)
-    user=$(hostUser)
-    group=$(hostGroup)
+    userAndGroup="$(hostUser):$(hostGroup)"
   ;;
 esac
 
@@ -82,10 +80,9 @@ echo "Attaching to the selected container..."
 echo
 echo "Name: $name"
 echo "Id: $id"
-echo "User: $user"
-echo "Group: $group"
+echo "User: $userAndGroup"
 echo "Shell: $shell"
 echo
 
 # attach to the container
-docker exec --interactive --tty --user $user:$group $id $shell
+docker exec --interactive --tty --user $userAndGroup $id $shell
