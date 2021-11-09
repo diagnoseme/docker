@@ -1,8 +1,11 @@
-# Docker Shell Wrapper
+# Docker tools
+
+
+## Connect to container
 
   A wrapper that executes an interactive shell on the container chosen from a list.
 
-## Description
+### Description
 
   The script asks for the:
 
@@ -16,18 +19,13 @@
 
   The `bash` shell is used if it is available in the container otherwise the `sh`.
 
-## Usage
+### Usage
 
   Run it with the command:
 
-    $ ./bin/docker-shell-wrapper [filter]
+    $ ./bin/connect-to-container [filter]
 
-## Parameters
-
-### Filter
-
-  Filter is a non required parameter.
-
-  It filters the list based on names, identifiers and labels.
-
-  If no filter is set the list contains all the running containers.
+- **`filter`** :  
+  - not required
+  - filter names, identifiers and labels  
+  - if empty, shows all running containers
