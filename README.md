@@ -1,7 +1,7 @@
 # Docker tools
 
 
-## Connect to container
+## Connect to container 🤝
 
   A wrapper that executes an interactive shell on the container chosen from a list.
 
