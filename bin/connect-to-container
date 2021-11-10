@@ -24,7 +24,7 @@ fi
 
 # create arrays from the list (print the array: declare -p name)
 names=($(echo "$list" | awk '{print $1}'))
-ids=$($(echo "$list" | awk '{print $2}'))
+ids=($(echo "$list" | awk '{print $2}'))
 
 # show the running container names
 for ((idx=0; idx<${#names[@]}; ++idx)); do
