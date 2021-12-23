@@ -1,5 +1,6 @@
 # Docker tools
 
+---
 
 ## Connect to container 🤝
 
@@ -29,3 +30,31 @@
   - not required
   - filter names, identifiers and labels  
   - if empty, shows all running containers
+
+---
+
+## Mutagen sync to VM (especially for OSX users)
+
+Handy shortcut to sync actual folder to VM.   
+Idea behind this tool is:
+- sync actual state to VM via rsync
+- create [mutagen.io](https://mutagen.io/) session aftewards for changes sync
+- if folder to sync contains `.mutagen` file this command will take it as [mutagen configuration file](https://mutagen.io/documentation/introduction/configuration#configuration-files)
+
+### Requirements
+
+- environment variable `DOCKER_VM_HOST` must be set (e.g. Parallels local VM IP address)
+- environment variable `DOCKER_VM_USER` must be set (e.g. VM default user "ubuntu")
+- connection to VM for that ENVs must be via certificate (without password, test it with command 
+```shell ssh $DOCKER_VM_USER@$DOCKER_VM_HOST`)```
+
+### Usage
+```shell
+$ cd <some folder to sync>
+
+# create a sync session
+$ mutagen-sync
+
+# drop sync session
+$ mutagen-sync d
+```

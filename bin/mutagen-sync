@@ -1,0 +1,42 @@
+#!/bin/bash
+
+host="$DOCKER_VM_USER@$DOCKER_VM_HOST"
+actualDir=$(pwd)
+echo "Preparing sync for: $actualDir"
+
+sessionName=$(echo $actualDir | sed 's/[\/\.]/-/g' | sed 's/^\-//')
+
+echo $sessionName
+
+if [ -z "$1" ]; then
+  exists=$(mutagen sync list | grep $sessionName | wc -l)
+
+  if [ 0 == $exists ]; then
+    echo
+    echo "Creating directory in VM ($actualDir)"
+  	ssh $host "mkdir -p $actualDir" || exit "Cannot create directory in VM $actualDir"
+
+    echo
+    echo "Sync all from host to VM (rsync for $actualDir)"
+    rsync -cv --recursive --links --safe-links --delete --exclude "*.git*" --exclude ".idea/*" $actualDir/ $host:$actualDir/ || exit 1
+
+    echo
+  	echo "Creating mutagen session ($sessionName)"
+    if [ -f "$actualDir/.mutagen" ]; then
+      mutagen sync create --name=$sessionName --configuration-file="$actualDir/.mutagen" $actualDir $host:$actualDir
+    else
+      mutagen sync create --name=$sessionName $actualDir $host:$actualDir
+    fi
+  else
+    echo
+    echo "Mutagen session already exists ($sessionName)"
+  fi
+
+  exit
+fi
+
+if [ $1 == "d" ]; then
+  mutagen sync terminate $sessionName
+  echo "Mutagen session removed: $sessionName"
+  exit
+fi
