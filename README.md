@@ -53,8 +53,8 @@ Idea behind this tool is:
 $ cd <some folder to sync>
 
 # create a sync session
-$ mutagen-sync
+$ ./bin/mutagen-sync
 
 # drop sync session
-$ mutagen-sync d
+$ ./bin/mutagen-sync d
 ```
