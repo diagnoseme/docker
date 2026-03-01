@@ -1,88 +1,250 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# running containers list
-dockerContainersList() {
-  docker ps --format 'table {{.Names}}\t{{.ID}}\t{{.Labels}}' | grep -v '^NAMES' | sort -k 1
+# connect-to-container — interactively shell into a running Docker container
+
+# ── Colors ────────────────────────────────────────────────────────────────────
+RST='\033[0m'
+BOLD='\033[1m'
+DIM='\033[2m'
+CYAN='\033[1;36m'
+GRAY='\033[90m'
+RED='\033[31m'
+
+SEP="${GRAY}  ──────────────────────────────────────${RST}"
+
+trap 'tput cnorm' EXIT
+
+# ── search_select ─────────────────────────────────────────────────────────────
+# Arrow-key menu with live search filtering.
+# Usage: search_select "Title" "initial_query" "item1" "item2" ...
+# Items may contain a tab for a dim hint column on the right.
+# Sets $REPLY to the 0-based index in the original items array.
+search_select() {
+  local title="$1"
+  local query="$2"
+  shift 2
+  local -a all_items=("$@")
+  local cursor=0
+  local -a filtered=()
+
+  _ss_filter() {
+    filtered=()
+    local i label ql
+    ql=$(printf '%s' "$query" | tr '[:upper:]' '[:lower:]')
+    for i in "${!all_items[@]}"; do
+      label=$(printf '%s' "${all_items[$i]%%$'\t'*}" | tr '[:upper:]' '[:lower:]')
+      if [[ -z "$ql" || "$label" == *"$ql"* ]]; then
+        filtered+=("$i")
+      fi
+    done
+    local fc=${#filtered[@]}
+    (( fc > 0 && cursor >= fc )) && cursor=$(( fc - 1 ))
+  }
+
+  _ss_draw() {
+    local fc=${#filtered[@]}
+    printf "  ${GRAY}Search:${RST} ${BOLD}%s${RST}${CYAN}▌${RST}\n" "$query"
+    if (( fc == 0 )); then
+      printf "  ${DIM}  no matches${RST}\n"
+      return
+    fi
+    local j i raw label hint
+    for j in "${!filtered[@]}"; do
+      i=${filtered[$j]}
+      raw="${all_items[$i]}"
+      if [[ "$raw" == *$'\t'* ]]; then
+        label="${raw%%$'\t'*}"; hint="${raw#*$'\t'}"
+      else
+        label="$raw"; hint=""
+      fi
+      if (( j == cursor )); then
+        printf "  ${CYAN}${BOLD}❯${RST} ${BOLD}%-30s${RST}  ${GRAY}%s${RST}\n" "$label" "$hint"
+      else
+        printf "  ${DIM}  %-30s  %s${RST}\n" "$label" "$hint"
+      fi
+    done
+  }
+
+  tput civis
+  _ss_filter
+
+  printf "\n${BOLD}  %s${RST}\n" "$title"
+  tput sc  # save cursor — redraw always returns here
+  _ss_draw
+
+  while true; do
+    local fc=${#filtered[@]}
+    local key ch
+
+    IFS= read -rsn1 key
+
+    # Arrow keys — read the rest of the escape sequence one byte at a time
+    if [[ $key == $'\x1b' ]]; then
+      IFS= read -rsn1 -t 1 ch
+      if [[ $ch == '[' ]]; then
+        IFS= read -rsn1 -t 1 ch
+        case "$ch" in
+          A)  # Up
+            if (( fc > 0 )); then
+              cursor=$(( cursor - 1 ))
+              (( cursor < 0 )) && cursor=$(( fc - 1 ))
+            fi
+            tput rc; tput ed; _ss_draw ;;
+          B)  # Down
+            if (( fc > 0 )); then
+              cursor=$(( cursor + 1 ))
+              (( cursor >= fc )) && cursor=0
+            fi
+            tput rc; tput ed; _ss_draw ;;
+        esac
+      fi
+      continue
+    fi
+
+    case "$key" in
+      $'\x7f'|$'\b')  # Backspace — remove last search char
+        [[ -n "$query" ]] && query="${query%?}"
+        _ss_filter
+        tput rc; tput ed; _ss_draw ;;
+      $'\x15')  # Ctrl+U — clear search
+        query=""
+        _ss_filter
+        tput rc; tput ed; _ss_draw ;;
+      '')  # Enter — confirm
+        (( ${#filtered[@]} > 0 )) && break ;;
+      $'\x03')  # Ctrl+C
+        printf "\n"; exit 130 ;;
+      [[:print:]])  # Printable character — append to search
+        query="${query}${key}"
+        _ss_filter
+        tput rc; tput ed; _ss_draw ;;
+    esac
+  done
+
+  tput cnorm
+  printf "\n"
+  REPLY=${filtered[$cursor]}
 }
 
-# user's and group's id on the host
-hostUserAndGroup() {
-  if [ $DOCKER_USER_AND_GROUP ]; then
-    echo "$DOCKER_USER_AND_GROUP"
-    exit
-  fi
+# ── arrow_select ──────────────────────────────────────────────────────────────
+# Simple arrow-key menu without search. Sets $REPLY to 0-based index.
+arrow_select() {
+  local title="$1"; shift
+  local -a items=("$@")
+  local count=${#items[@]}
+  local cursor=0
 
-  echo "$(id -u):$(id -g)"
+  tput civis
+
+  _as_draw() {
+    local i label hint
+    for i in "${!items[@]}"; do
+      if [[ "${items[$i]}" == *$'\t'* ]]; then
+        label="${items[$i]%%$'\t'*}"; hint="${items[$i]#*$'\t'}"
+      else
+        label="${items[$i]}"; hint=""
+      fi
+      if (( i == cursor )); then
+        printf "  ${CYAN}${BOLD}❯${RST} ${BOLD}%-30s${RST}  ${GRAY}%s${RST}\n" "$label" "$hint"
+      else
+        printf "  ${DIM}  %-30s  %s${RST}\n" "$label" "$hint"
+      fi
+    done
+  }
+
+  printf "\n${BOLD}  %s${RST}\n" "$title"
+  tput sc  # save cursor — redraw always returns here
+  _as_draw
+
+  while true; do
+    local key ch
+    IFS= read -rsn1 key
+
+    if [[ $key == $'\x1b' ]]; then
+      IFS= read -rsn1 -t 1 ch
+      if [[ $ch == '[' ]]; then
+        IFS= read -rsn1 -t 1 ch
+        case "$ch" in
+          A) cursor=$(( cursor - 1 )); (( cursor < 0 )) && cursor=$(( count - 1 ))
+             tput rc; tput ed; _as_draw ;;
+          B) cursor=$(( cursor + 1 )); (( cursor >= count )) && cursor=0
+             tput rc; tput ed; _as_draw ;;
+        esac
+      fi
+      continue
+    fi
+
+    case "$key" in
+      '') break ;;
+      $'\x03') printf "\n"; exit 130 ;;
+    esac
+  done
+
+  tput cnorm
+  printf "\n"
+  REPLY=$cursor
 }
 
-# filter the list based on the first parameter
-if [[ $1 ]]; then
-  list=$(dockerContainersList | grep $1)
-else
-  list=$(dockerContainersList)
+# ── Helpers ───────────────────────────────────────────────────────────────────
+host_user_and_group() {
+  echo "${DOCKER_USER_AND_GROUP:-$(id -u):$(id -g)}"
+}
+
+# ── Fetch containers ──────────────────────────────────────────────────────────
+initial_query="${1:-}"
+
+names=(); ids=(); images=()
+while IFS=$'\t' read -r _name _id _image _status; do
+  names+=("$_name")
+  ids+=("$_id")
+  images+=("$_image")
+done < <(docker ps --format '{{.Names}}\t{{.ID}}\t{{.Image}}\t{{.Status}}' | sort)
+
+if [[ ${#names[@]} -eq 0 ]]; then
+  printf "\n  ${RED}✗${RST}  No running containers\n\n"
+  exit 1
 fi
 
-# create arrays from the list (print the array: declare -p name)
-names=($(echo "$list" | awk '{print $1}'))
-ids=($(echo "$list" | awk '{print $2}'))
+# ── Header ────────────────────────────────────────────────────────────────────
+printf "\n  ${CYAN}${BOLD}Docker Connect${RST}\n"
+printf "%b\n" "$SEP"
 
-# show the running container names
-for ((idx=0; idx<${#names[@]}; ++idx)); do
-    value="${names[idx]}"
-    index=$(echo "$idx+1" | bc)
-
-    # show pretty name
-    name=$(echo $value | sed 's/\..*//')
-
-    echo -e "$index"'\t'"$name"
+# ── Select container ──────────────────────────────────────────────────────────
+container_items=()
+for i in "${!names[@]}"; do
+  container_items+=("${names[$i]%%.*}"$'\t'"${images[$i]}")
 done
 
-# ask for a number from the list
-echo
-read -p '? ' number
+search_select "Select container" "$initial_query" "${container_items[@]}"
+sel=$REPLY
+container_name="${names[$sel]}"
+container_id="${ids[$sel]}"
 
-# set the connection details
-index=$(echo "$number-1" | bc)
-name=$(echo ${names[$index]})
-id=$(echo ${ids[$index]})
+# ── Select user ───────────────────────────────────────────────────────────────
+host_ug="$(host_user_and_group)"
 
-# ask for the user type
-echo
-echo "Connect as a root? y/[n]"
-echo
-read -p "? " connectAsRoot
+arrow_select "Connect as" \
+  "Current user"$'\t'"$host_ug" \
+  "Root"$'\t'"root:root"
 
-# set the user type
-case $connectAsRoot in
-  y|Y)
-    userAndGroup="root:root"
-  ;;
-  n|N|*)
-    userAndGroup="$(hostUserAndGroup)"
-  ;;
-esac
+user_and_group="$( (( REPLY == 1 )) && echo "root:root" || echo "$host_ug" )"
 
-# detect the shell name
-echo
-echo -n "Detecting a shell in the container..."
-
-# set the shell name
-output=$(docker exec "$id" which bash)
-if [ $output ]; then
+# ── Detect shell ──────────────────────────────────────────────────────────────
+printf "  ${GRAY}Detecting shell…${RST}"
+if docker exec "$container_id" which bash &>/dev/null; then
   shell="bash"
 else
   shell="sh"
 fi
+printf "\r%-42s\r" ""
 
-# show connection details
-echo
-echo "Attaching to the selected container..."
-echo
-echo "Name: $name"
-echo "Id: $id"
-echo "User: $userAndGroup"
-echo "Shell: $shell"
-echo
+# ── Summary ───────────────────────────────────────────────────────────────────
+printf "%b\n" "$SEP"
+printf "  ${GRAY}%-8s${RST}${BOLD}%s${RST}\n"  "Name"  "${container_name%%.*}"
+printf "  ${GRAY}%-8s${RST}%s\n"                "ID"    "$container_id"
+printf "  ${GRAY}%-8s${RST}%s\n"                "User"  "$user_and_group"
+printf "  ${GRAY}%-8s${RST}%s\n"                "Shell" "$shell"
+printf "%b\n\n" "$SEP"
 
-# attach to the container
-docker exec --interactive --tty --user $userAndGroup $id $shell
+# ── Connect ───────────────────────────────────────────────────────────────────
+docker exec --interactive --tty --user "$user_and_group" "$container_id" "$shell"
