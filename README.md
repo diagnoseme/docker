@@ -4,32 +4,32 @@
 
 ## Connect to container 🤝
 
-  A wrapper that executes an interactive shell on the container chosen from a list.
+  An interactive TUI for shelling into a running Docker container.
 
 ### Description
 
-  The script asks for the:
+  - **Type to search** — filter containers in real time as you type
+  - **Arrow keys** — navigate the filtered list
+  - **`Backspace`** — delete the last search character
+  - **`Ctrl+U`** — clear the search
+  - **`Enter`** — connect to the selected container
 
-  - Container number (from a list)
-  - If to connect as a root
-    - The root is hardcoded together with the group as `root:root` 
-    - A `DOCKER_USER_AND_GROUP` environment variable can be used to override the host's user and group
-      - It can contain only the user's name or their id, e.g. `user` or `1000`
-      - It can also contain the user's group or its id, e.g. `user:group` or `1000:1000`
-    - Otherwise, the user and group are detected automatically from the host's system
+  After selecting a container, choose to connect as your current host user or as root.
 
-  The `bash` shell is used if it is available in the container otherwise the `sh`.
+  - A `DOCKER_USER_AND_GROUP` environment variable overrides the detected host user/group
+    - Accepts a name or id, e.g. `user` or `1000`
+    - Accepts user and group, e.g. `user:group` or `1000:1000`
+  - `bash` is used if available in the container, otherwise `sh`
 
 ### Usage
 
-  Run it with the command:
+```shell
+# show all running containers
+$ ./bin/connect-to-container
 
-    $ ./bin/connect-to-container [filter]
-
-- **`filter`** :  
-  - not required
-  - filter names, identifiers and labels  
-  - if empty, shows all running containers
+# open with a pre-filled search
+$ ./bin/connect-to-container [query]
+```
 
 ---
 
