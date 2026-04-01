@@ -41,11 +41,13 @@ search_select() {
     (( fc > 0 && cursor >= fc )) && cursor=$(( fc - 1 ))
   }
 
+  _ss_drawn_lines=0
   _ss_draw() {
     local fc=${#filtered[@]}
     printf "  ${GRAY}Search:${RST} ${BOLD}%s${RST}${CYAN}▌${RST}\n" "$query"
     if (( fc == 0 )); then
       printf "  ${DIM}  no matches${RST}\n"
+      _ss_drawn_lines=2
       return
     fi
     local j i raw label hint
@@ -63,13 +65,19 @@ search_select() {
         printf "  ${DIM}  %-30s  %s${RST}\n" "$label" "$hint"
       fi
     done
+    _ss_drawn_lines=$(( 1 + fc ))
+  }
+  _ss_clear() {
+    if (( _ss_drawn_lines > 0 )); then
+      printf '\033[%dA' "$_ss_drawn_lines"
+      tput ed
+    fi
   }
 
   tput civis
   _ss_filter
 
   printf "\n${BOLD}  %s${RST}\n" "$title"
-  tput sc  # save cursor — redraw always returns here
   _ss_draw
 
   while true; do
@@ -89,13 +97,13 @@ search_select() {
               cursor=$(( cursor - 1 ))
               (( cursor < 0 )) && cursor=$(( fc - 1 ))
             fi
-            tput rc; tput ed; _ss_draw ;;
+            _ss_clear; _ss_draw ;;
           B)  # Down
             if (( fc > 0 )); then
               cursor=$(( cursor + 1 ))
               (( cursor >= fc )) && cursor=0
             fi
-            tput rc; tput ed; _ss_draw ;;
+            _ss_clear; _ss_draw ;;
         esac
       fi
       continue
@@ -105,11 +113,11 @@ search_select() {
       $'\x7f'|$'\b')  # Backspace — remove last search char
         [[ -n "$query" ]] && query="${query%?}"
         _ss_filter
-        tput rc; tput ed; _ss_draw ;;
+        _ss_clear; _ss_draw ;;
       $'\x15')  # Ctrl+U — clear search
         query=""
         _ss_filter
-        tput rc; tput ed; _ss_draw ;;
+        _ss_clear; _ss_draw ;;
       '')  # Enter — confirm
         (( ${#filtered[@]} > 0 )) && break ;;
       $'\x03')  # Ctrl+C
@@ -117,7 +125,7 @@ search_select() {
       [[:print:]])  # Printable character — append to search
         query="${query}${key}"
         _ss_filter
-        tput rc; tput ed; _ss_draw ;;
+        _ss_clear; _ss_draw ;;
     esac
   done
 
@@ -136,6 +144,7 @@ arrow_select() {
 
   tput civis
 
+  _as_drawn_lines=0
   _as_draw() {
     local i label hint
     for i in "${!items[@]}"; do
@@ -150,10 +159,16 @@ arrow_select() {
         printf "  ${DIM}  %-30s  %s${RST}\n" "$label" "$hint"
       fi
     done
+    _as_drawn_lines=$count
+  }
+  _as_clear() {
+    if (( _as_drawn_lines > 0 )); then
+      printf '\033[%dA' "$_as_drawn_lines"
+      tput ed
+    fi
   }
 
   printf "\n${BOLD}  %s${RST}\n" "$title"
-  tput sc  # save cursor — redraw always returns here
   _as_draw
 
   while true; do
@@ -166,9 +181,9 @@ arrow_select() {
         IFS= read -rsn1 -t 1 ch
         case "$ch" in
           A) cursor=$(( cursor - 1 )); (( cursor < 0 )) && cursor=$(( count - 1 ))
-             tput rc; tput ed; _as_draw ;;
+             _as_clear; _as_draw ;;
           B) cursor=$(( cursor + 1 )); (( cursor >= count )) && cursor=0
-             tput rc; tput ed; _as_draw ;;
+             _as_clear; _as_draw ;;
         esac
       fi
       continue
